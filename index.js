@@ -1,6 +1,21 @@
 const express = require("express");
+const mongoose = require("mongoose");
+const dbURI = process.env.DB_URI || require("./secrets").dbURI;
+const Post = require('./model');
+
 const app = express();
 const port = process.env.PORT || 5000;
+
+mongoose
+  .connect(dbURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.log("Failed to connect to MongoDB", err));
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 let res_data = {
   coord: {
@@ -55,12 +70,41 @@ let d = 10;
 console.log(isPrime(d));
 
 app.get("/", async (req, res) => {
-  isPrime(d)
-    ? res.status(200).json(res_data)
-    : res.status(403).send("Date is not prime so you can't request the data");
+  if(isPrime(d)){
+    res.status(200).json(res_data)
+    addAuditData(date, res_data);
+  }else{
+    let invalid = "Date is not prime so you can't request the data"
+    res.status(403).send(invalid);
+    addAuditData(date, invalid);
+
+  }
   console.log("data sent!");
+  
 });
 
 app.listen(port, () => {
   console.log(`Started up at port ${port}`);
+});
+
+
+
+router.get("/auditData", async (req, res) => {
+  const reqRess = await reqRes.find().sort({ timestamp: -1 });
+  res.status(200).json(reqRess);
+});
+
+const addAuditData = ((date, res)=>{
+  const newPost = new Post({
+    date: date,
+    responseSent: res,
+    timestamp: new Date().getTime(),
+  })
+  
+  try {
+    const post = await newPost.save();
+    console.log("Audit Data added", post)
+  } catch (err) {
+    console.log("Audit Data adding FAILED!", err)  
+  }
 });
